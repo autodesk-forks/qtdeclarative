@@ -242,7 +242,7 @@ template<class N, QIntrusiveListNode N::*member>
 N *QIntrusiveList<N, member>::nodeToN(QIntrusiveListNode *node)
 {
     QT_WARNING_PUSH
-#if defined(Q_CC_CLANG) && Q_CC_CLANG >= 1300
+#if defined(Q_CC_CLANG)
     QT_WARNING_DISABLE_CLANG("-Wnull-pointer-subtraction")
 #endif
     return (N *)((char *)node - ((char *)&(((N *)nullptr)->*member) - (char *)nullptr));
