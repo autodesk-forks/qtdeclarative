@@ -47,6 +47,7 @@
 #include <QtCore/qvarlengtharray.h>
 #include <QtCore/qmetatype.h>
 
+#include <limits>
 #include <initializer_list>
 #include <type_traits>
 
