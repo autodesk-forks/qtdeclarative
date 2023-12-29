@@ -335,8 +335,10 @@ void QQuickWidgetPrivate::render(bool needsSync)
             q->createFramebufferObject();
         }
 
-        if (!rhi)
+        if (!rhi) {
+            qWarning("QQuickWidget: Attempted to render scene with no rhi");
             return;
+        }
 
         // createFramebufferObject() bails out when the size is empty. In this case
         // we cannot render either.
@@ -395,11 +397,6 @@ void QQuickWidgetPrivate::renderSceneGraph()
 
     if (!q->isVisible() || fakeHidden)
         return;
-
-    if (!useSoftwareRenderer && !rhi) {
-        qWarning("QQuickWidget: Attempted to render scene with no rhi");
-        return;
-    }
 
     render(true);
 
@@ -657,6 +654,9 @@ QQuickWidget::~QQuickWidget()
     Q_D(QQuickWidget);
     delete d->root;
     d->root = nullptr;
+
+    if (d->rhi)
+        d->rhi->removeCleanupCallback(this);
 
     // NB! resetting graphics resources must be done from this destructor,
     // *not* from the private class' destructor. This is due to how destruction
@@ -1022,8 +1022,19 @@ void QQuickWidgetPrivate::initializeWithRhi()
         if (rhi)
             return;
 
-        if (QWidgetRepaintManager *repaintManager = tlwd->maybeRepaintManager())
+        if (QWidgetRepaintManager *repaintManager = tlwd->maybeRepaintManager()) {
             rhi = repaintManager->rhi();
+            if (rhi) {
+                // We don't own the RHI, so make sure we clean up if it goes away
+                rhi->addCleanupCallback(q, [this](QRhi *rhi) {
+                    if (this->rhi == rhi) {
+                        invalidateRenderControl();
+                        deviceLost = true;
+                        this->rhi = nullptr;
+                    }
+                });
+            }
+        }
 
         if (!rhi) {
             // The widget (and its parent chain, if any) may not be shown at
@@ -1676,7 +1687,10 @@ bool QQuickWidget::event(QEvent *e)
         }
 
     case QEvent::WindowAboutToChangeInternal:
+        if (d->rhi)
+            d->rhi->removeCleanupCallback(this);
         d->invalidateRenderControl();
+        d->deviceLost = true;
         d->rhi = nullptr;
         break;
 
