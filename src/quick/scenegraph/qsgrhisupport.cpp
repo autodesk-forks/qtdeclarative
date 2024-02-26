@@ -1078,7 +1078,7 @@ void QSGRhiSupport::finalizePipelineCache(QRhi *rhi, const QQuickGraphicsConfigu
 }
 
 // must be called on the render thread
-QSGRhiSupport::RhiCreateResult QSGRhiSupport::createRhi(QQuickWindow *window, QSurface *offscreenSurface)
+QSGRhiSupport::RhiCreateResult QSGRhiSupport::createRhi(QQuickWindow *window, QSurface *offscreenSurface, bool forcePreferSwRenderer)
 {
     QRhi *rhi = nullptr;
     QQuickWindowPrivate *wd = QQuickWindowPrivate::get(window);
@@ -1093,7 +1093,7 @@ QSGRhiSupport::RhiCreateResult QSGRhiSupport::createRhi(QQuickWindow *window, QS
 
     const bool debugLayer = wd->graphicsConfig.isDebugLayerEnabled();
     const bool debugMarkers = wd->graphicsConfig.isDebugMarkersEnabled();
-    const bool preferSoftware = wd->graphicsConfig.prefersSoftwareDevice();
+    const bool preferSoftware = wd->graphicsConfig.prefersSoftwareDevice() || forcePreferSwRenderer;
     const bool pipelineCacheSave = !wd->graphicsConfig.pipelineCacheSaveFile().isEmpty()
             || (wd->graphicsConfig.isAutomaticPipelineCacheEnabled()
                 && !isAutomaticPipelineCacheSaveSkippedForWindow(window->flags()));
@@ -1103,9 +1103,10 @@ QSGRhiSupport::RhiCreateResult QSGRhiSupport::createRhi(QQuickWindow *window, QS
             "Creating QRhi with backend %s for window %p (wflags 0x%X)\n"
             "  Graphics API debug/validation layers: %d\n"
             "  Debug markers: %d\n"
-            "  Prefer software device: %d\n"
+            "  Prefer software device: %d%s\n"
             "  Shader/pipeline cache collection: %d",
-            qPrintable(backendName), window, int(window->flags()), debugLayer, debugMarkers, preferSoftware, pipelineCacheSave);
+            qPrintable(backendName), window, int(window->flags()), debugLayer,
+            debugMarkers, preferSoftware, forcePreferSwRenderer ? " [FORCED]" : "", pipelineCacheSave);
 
     QRhi::Flags flags;
     if (debugMarkers)
@@ -1200,7 +1201,7 @@ QSGRhiSupport::RhiCreateResult QSGRhiSupport::createRhi(QQuickWindow *window, QS
             rhi = QRhi::create(backend, &rhiParams, flags, &importDev);
         } else {
             rhi = QRhi::create(backend, &rhiParams, flags);
-            if (!rhi && !flags.testFlag(QRhi::PreferSoftwareRenderer)) {
+            if (!rhi && attemptReinitWithSwRastUponFail() && !flags.testFlag(QRhi::PreferSoftwareRenderer)) {
                 qCDebug(QSG_LOG_INFO, "Failed to create a D3D device with default settings; "
                                       "attempting to get a software rasterizer backed device instead");
                 flags |= QRhi::PreferSoftwareRenderer;
@@ -1527,6 +1528,20 @@ QRhiTexture::Format QSGRhiSupport::toRhiTextureFormat(uint nativeFormat, QRhiTex
     default:
         return QRhiTexture::UnknownFormat;
     }
+}
+
+bool QSGRhiSupport::attemptReinitWithSwRastUponFail() const
+{
+    const QRhi::Implementation backend = rhiBackend();
+
+    // On Windows it makes sense to retry using a software adapter whenever
+    // device creation or swapchain creation fails, as WARP is usually available
+    // (built in to the OS) and is good quality. This helps a lot in particular
+    // when running in a VM that cripples proper 3D graphics.
+    if (backend == QRhi::D3D11)
+        return true;
+
+    return false;
 }
 
 QT_END_NAMESPACE
