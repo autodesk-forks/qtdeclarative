@@ -1004,13 +1004,10 @@ void QQuickWidgetPrivate::initializeWithRhi()
 {
     Q_Q(QQuickWidget);
 
-    QWidgetPrivate *tlwd = QWidgetPrivate::get(q->window());
     // when reparenting, the rhi may suddenly be different
     if (rhi) {
-        QRhi *tlwRhi = nullptr;
-        if (QWidgetRepaintManager *repaintManager = tlwd->maybeRepaintManager())
-            tlwRhi = repaintManager->rhi();
-        if (tlwRhi && rhi != tlwRhi)
+        QRhi *backingStoreRhi = QWidgetPrivate::rhi();
+        if (backingStoreRhi && rhi != backingStoreRhi)
             rhi = nullptr;
     }
 
@@ -1022,18 +1019,16 @@ void QQuickWidgetPrivate::initializeWithRhi()
         if (rhi)
             return;
 
-        if (QWidgetRepaintManager *repaintManager = tlwd->maybeRepaintManager()) {
-            rhi = repaintManager->rhi();
-            if (rhi) {
-                // We don't own the RHI, so make sure we clean up if it goes away
-                rhi->addCleanupCallback(q, [this](QRhi *rhi) {
-                    if (this->rhi == rhi) {
-                        invalidateRenderControl();
-                        deviceLost = true;
-                        this->rhi = nullptr;
-                    }
-                });
-            }
+        if (QRhi *backingStoreRhi = QWidgetPrivate::rhi()) {
+            rhi = backingStoreRhi;
+            // We don't own the RHI, so make sure we clean up if it goes away
+            rhi->addCleanupCallback(q, [this](QRhi *rhi) {
+                if (this->rhi == rhi) {
+                    invalidateRenderControl();
+                    deviceLost = true;
+                    this->rhi = nullptr;
+                }
+            });
         }
 
         if (!rhi) {
@@ -1295,12 +1290,6 @@ QPlatformBackingStoreRhiConfig QQuickWidgetPrivate::rhiConfig() const
 
 QWidgetPrivate::TextureData QQuickWidgetPrivate::texture() const
 {
-    Q_Q(const QQuickWidget);
-    if (!q->isWindow() && q->internalWinId()) {
-        qWarning() << "QQuickWidget cannot be used as a native child widget."
-                   << "Consider setting Qt::AA_DontCreateNativeWidgetSiblings";
-        return {};
-    }
     return { outputTexture, nullptr };
 }
 
