@@ -8085,10 +8085,14 @@ void QQuickItem::setCursor(const QCursor &cursor)
     if (oldShape != cursor.shape() || oldShape >= Qt::LastCursor || cursor.shape() >= Qt::LastCursor) {
         d->extra.value().cursor = cursor;
         if (d->window) {
-            QWindow *renderWindow = QQuickRenderControl::renderWindowFor(d->window);
-            QWindow *window = renderWindow ? renderWindow : d->window; // this may not be a QQuickWindow
-            if (QQuickWindowPrivate::get(d->window)->cursorItem == this)
+            if (QQuickWindowPrivate::get(d->window)->cursorItem == this) {
+                QPoint quickWidgetOffset;
+                QWindow *renderWindow = QQuickRenderControl::renderWindowFor(d->window, &quickWidgetOffset);
+                QWindow *window = renderWindow ? renderWindow : d->window; // this may not be a QQuickWindow
+                QPointF pos = window->mapFromGlobal(QGuiApplicationPrivate::lastCursorPosition) - quickWidgetOffset;
+                QQuickWindowPrivate::get(d->window)->updateCursor(pos);
                 window->setCursor(cursor);
+            }
         }
     }
 
@@ -8096,9 +8100,10 @@ void QQuickItem::setCursor(const QCursor &cursor)
     if (!d->hasCursor) {
         d->hasCursor = true;
         if (d->window) {
-            QWindow *renderWindow = QQuickRenderControl::renderWindowFor(d->window);
+            QPoint quickWidgetOffset;
+            QWindow *renderWindow = QQuickRenderControl::renderWindowFor(d->window, &quickWidgetOffset);
             QWindow *window = renderWindow ? renderWindow : d->window;
-            QPointF pos = window->mapFromGlobal(QGuiApplicationPrivate::lastCursorPosition);
+            QPointF pos = window->mapFromGlobal(QGuiApplicationPrivate::lastCursorPosition) - quickWidgetOffset;
             if (contains(mapFromScene(pos)))
                 updateCursorPos = pos;
         }
@@ -8128,7 +8133,10 @@ void QQuickItem::unsetCursor()
     if (d->window) {
         QQuickWindowPrivate *windowPrivate = QQuickWindowPrivate::get(d->window);
         if (windowPrivate->cursorItem == this) {
-            QPointF pos = d->window->mapFromGlobal(QGuiApplicationPrivate::lastCursorPosition);
+            QPoint quickWidgetOffset;
+            QWindow* renderWindow = QQuickRenderControl::renderWindowFor(d->window, &quickWidgetOffset);
+            QWindow* window = renderWindow ? renderWindow : d->window;
+            QPointF pos = window->mapFromGlobal(QGuiApplicationPrivate::lastCursorPosition) - quickWidgetOffset;
             windowPrivate->updateCursor(pos);
         }
     }
