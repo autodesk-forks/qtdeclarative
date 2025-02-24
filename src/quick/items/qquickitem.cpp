@@ -8091,7 +8091,8 @@ void QQuickItem::setCursor(const QCursor &cursor)
                 QWindow *window = renderWindow ? renderWindow : d->window; // this may not be a QQuickWindow
                 QPointF pos = window->mapFromGlobal(QGuiApplicationPrivate::lastCursorPosition) - quickWidgetOffset;
                 QQuickWindowPrivate::get(d->window)->updateCursor(pos);
-                window->setCursor(cursor);
+                if (QQuickWindowPrivate::get(d->window)->cursorItem == this)
+                    window->setCursor(cursor);
             }
         }
     }
