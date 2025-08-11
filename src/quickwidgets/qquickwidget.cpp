@@ -1027,8 +1027,14 @@ void QQuickWidgetPrivate::initializeWithRhi()
     // when reparenting, the rhi may suddenly be different
     if (rhi) {
         QRhi *backingStoreRhi = QWidgetPrivate::rhi();
-        if (backingStoreRhi && rhi != backingStoreRhi)
+        if (backingStoreRhi && rhi != backingStoreRhi) {
+            // Autodesk Change:
+            // Upon reparenting, the RHI may suddenly be different. In this case,
+            // we need to invalidate the render control to ensure that the new
+            // RHI is properly set via the initialize() call down below.
+            invalidateRenderControl();
             rhi = nullptr;
+        }
     }
 
     // On hide-show we may invalidate() (when !isPersistentSceneGraph) but our
