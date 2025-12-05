@@ -2342,9 +2342,10 @@ bool QQuickDeliveryAgentPrivate::deliverPressOrReleaseEvent(QPointerEvent *event
 
         // sendFilteredPointerEvent() changed the QEventPoint::accepted() state,
         // but per-point acceptance is opt-in during normal delivery to items.
-        for (int i = 0; i < event->pointCount(); ++i)
-            event->point(i).setAccepted(false);
-
+        if (!handlersOnly) {
+            for (int i = 0; i < event->pointCount(); ++i)
+                event->point(i).setAccepted(false);
+        }
         deliverMatchingPointsToItem(item, false, event, handlersOnly);
         if (event->allPointsAccepted())
             handlersOnly = true;
