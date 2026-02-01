@@ -330,6 +330,8 @@ function(qt6_add_qml_module target)
         set(arg_VERSION "254.254")
     elseif ("${arg_VERSION}" MATCHES "^([0-9]+\\.[0-9]+)\\.[0-9]+$")
         set(arg_VERSION "${CMAKE_MATCH_1}")
+    elseif ("${arg_VERSION}" MATCHES "^([0-9]+\\.[0-9]+)\\.[0-9]+\\.[0-9]+$")
+        set(arg_VERSION "${CMAKE_MATCH_1}")
     elseif (NOT "${arg_VERSION}" MATCHES "^[0-9]+\\.[0-9]+$")
         message(FATAL_ERROR
             "Called with an invalid version argument: '${arg_VERSION}'. "
