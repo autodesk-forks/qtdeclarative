@@ -1043,9 +1043,27 @@ void QSvgVisitorImpl::visitDocumentNodeEnd(const QSvgTinyDocument *node)
     m_generator->generateRootNode(info);
 }
 
+static QString scrub(const QString &raw)
+{
+    QString res(raw.left(80));
+
+    if (!res.isEmpty()) {
+        constexpr QLatin1StringView legalSymbols("_-.:"); // Only valid SVG id characters
+        qsizetype i = 0;
+        do {
+            if (res.at(i).isLetterOrNumber() || legalSymbols.contains(res.at(i)))
+                i++;
+            else
+                res.remove(i, 1);
+        } while (i < res.size());
+    }
+
+    return res;
+}
+
 void QSvgVisitorImpl::fillCommonNodeInfo(const QSvgNode *node, NodeInfo &info)
 {
-    info.nodeId = node->nodeId();
+    info.nodeId = scrub(node->nodeId());
     info.typeName = node->typeName();
     info.isDefaultTransform = node->style().transform.isDefault();
     info.transform = !info.isDefaultTransform ? node->style().transform->qtransform() : QTransform();
